@@ -12,9 +12,10 @@ import time
 from threading import Thread, RLock
 from functools import partial
 from ctypes import *
+import requests
 
-
-
+# Default Values
+IP = '192.168.1.9'
 class GroupCtrl(QGroupBox):
     def __init__(self, label='', parent=None):
         super().__init__(parent)
@@ -184,6 +185,7 @@ class AD5372Ctrl(GroupCtrl):
         self.dataFile = 'ad5372_data.dat'
         self.channelOrder = [1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15,
                              14, 17, 16, 19, 18, 21, 20, 23, 22, 25, 24, 27, 26, 29, 28, 31, 30]
+        self.channelAddress =  [0x08+i for i in self.channelOrder]
         self.dataNum = 32
         self.createConfig()
         self.createChannels()
@@ -357,11 +359,15 @@ class AD5372Ctrl(GroupCtrl):
 
     def createConfig(self):
         self.pre = QWidget()
+        self.ipInput = QLineEdit(IP) self.IP = QLabel("IP")
+        self.ipInput = QLineEdit(IP)
         self.update = Button('Reset Board', self.reset)
         self.load = Button('Load Data', self.loadData)
         self.save = Button('Save Data', self.saveData)
         hlayout = QHBoxLayout(self.pre)
         hlayout.setContentsMargins(0, 0, 0, 0)
+        hlayout.addWidget(QLabel("IP"))
+        hlayout.addWidget(self.ip)
         hlayout.addWidget(self.update)
         hlayout.addWidget(self.load)
         hlayout.addWidget(self.save)
@@ -431,9 +437,17 @@ class AD5372Ctrl(GroupCtrl):
         np.savetxt(self.dataFile, data)
 
     def reset(self):
+        data = 100000000
+        try:
+            with requests.Session() as s:
+                req = s.get('http://' + self.ipInput.text() +
+                            '/data/' + str(data))
+        except requests.exceptions.RequestException as e:
+            print(type(e))
+
         for i in range(self.dataNum):
             self.channels[i].setValue(0.0)
-
+        
 
     def updateShutter(self, num):
         if abs(self.channels[self.shutterArray[num] - 1].value()) < 0.1:
@@ -453,10 +467,23 @@ class AD5372Ctrl(GroupCtrl):
             self.channels[self.shutterArray[index]-1].setValue(0.0)
 
     def set_voltage(self, channel, Vout):
-        if (abs(Vout) > 10.00001):
-            print('Voltage over range!')
-            return
 
+        if (abs(Vout) > 10.00001):
+            print("Voltage over range! Set Voltage to Max 10v")
+
+        Vout = min(10, Vout)
+        VREF = 5.0
+        offset_code = 0x2000
+        WRITE_X = 3  # Write to DAC data (X) register
+        dac_code = int(Vout * 2**16 / (4 * VREF) + offset_code * 4)
+        input_code = dac_code
+        mode_code = WRITE_X
+        data = input_code + (channelAddress[channel]<<16) + (mode_code<<22)
+        try:
+            with requests.Session() as s:
+                req = s.get('http://' + self.ipInput.text() + '/data/' + str(data))
+        except requests.exceptions.RequestException as e:
+            print(type(e))
 
 
 
