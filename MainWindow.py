@@ -359,7 +359,6 @@ class AD5372Ctrl(GroupCtrl):
 
     def createConfig(self):
         self.pre = QWidget()
-        self.ipInput = QLineEdit(IP) self.IP = QLabel("IP")
         self.ipInput = QLineEdit(IP)
         self.update = Button('Reset Board', self.reset)
         self.load = Button('Load Data', self.loadData)
@@ -367,7 +366,7 @@ class AD5372Ctrl(GroupCtrl):
         hlayout = QHBoxLayout(self.pre)
         hlayout.setContentsMargins(0, 0, 0, 0)
         hlayout.addWidget(QLabel("IP"))
-        hlayout.addWidget(self.ip)
+        hlayout.addWidget(self.ipInput)
         hlayout.addWidget(self.update)
         hlayout.addWidget(self.load)
         hlayout.addWidget(self.save)
@@ -478,7 +477,7 @@ class AD5372Ctrl(GroupCtrl):
         dac_code = int(Vout * 2**16 / (4 * VREF) + offset_code * 4)
         input_code = dac_code
         mode_code = WRITE_X
-        data = input_code + (channelAddress[channel]<<16) + (mode_code<<22)
+        data = input_code + (self.channelAddress[channel]<<16) + (mode_code<<22)
         try:
             with requests.Session() as s:
                 req = s.get('http://' + self.ipInput.text() + '/data/' + str(data))
